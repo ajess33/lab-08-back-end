@@ -31,6 +31,31 @@ function handleError(err, res) {
 app.get('/location', getLocation);
 // CREATE WEATHER ROUTE
 app.get('/weather', getWeather);
+// CREATE MOVIE ROUTE
+app.get('/movies', getMovies);
+// CREATE YELP ROUTE
+app.get('/yelp', getYelp);
+
+// MOVIE --------------------------------------------------------------------
+
+function getMovies(request, response) {
+
+}
+
+function Movie(query, data) {
+
+}
+
+// YELP -------------------------------------------------------------------------
+
+function getYelp(request, response) {
+
+}
+
+function Movie(query, data) {
+
+}
+
 
 function getLocation(request, response) {
   const locationHandler = {
@@ -114,6 +139,7 @@ function getWeather(request, response) {
     location: request.query.data,
 
     cacheHit: function (result) {
+      // add created_at
       response.send(result.rows);
     },
 

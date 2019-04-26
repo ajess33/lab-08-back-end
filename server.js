@@ -40,11 +40,75 @@ app.get('/yelp', getYelp);
 
 function getMovies(request, response) {
 
+  const handler = {
+    query: request.query.data,
+
+    cacheHit: function (results) {
+      response.send(results.row);
+    },
+
+    cacheMiss: function () {
+      Movie.fetch(request.query.data)
+        .then(data => {
+          console.log(data);
+          response.send(data);
+        });
+    }
+  };
+  Movie.lookup(handler);
 }
 
-function Movie(query, data) {
-
+function Movie(data) {
+  this.title = data.title;
+  this.overview = data.overview;
+  this.average_votes = data.vote_average;
+  this.total_votes = data.vote_count;
+  this.image_url = data.poster_path;
+  this.popularity = data.popularity;
+  this.released_on = data.release_date;
+  this.created_at = Date.now();
 }
+
+Movie.lookup = function (handler) {
+  const SQL = `SELECT * FROM movies WHERE location_id=$1;`;
+  client.query(SQL, [handler.query.location_id])
+    .then(result => {
+      if (result.rowCount > 0) {
+        console.log('Got SQL data');
+        handler.cacheHit(result);
+      } else {
+        console.log('Got data from API');
+        handler.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+};
+
+Movie.prototype.save = function (id) {
+  const SQL = `INSERT INTO movies (title, overview, average_votes, total_votes, image_url, popularity, released_on, created_at, location_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9);`;
+
+  const values = Object.values(this);
+  values.push(id);
+  client.query(SQL, values);
+};
+
+
+Movie.fetch = (location) => {
+  const _URL = `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.MOVIE_API_KEY}&language=en-US&page=1&region=${location.formatted_query}`;
+  return superagent.get(_URL)
+    .then(data => {
+      console.log(data);
+      const movieResults = data.body.results.map((result) => {
+        const movie = new Movie(result);
+        movie.save(location.id);
+        return movie;
+      });
+      return movieResults;
+    }
+    );
+};
+
+
 
 // YELP -------------------------------------------------------------------------
 
@@ -52,7 +116,7 @@ function getYelp(request, response) {
 
 }
 
-function Movie(query, data) {
+function Yelp(query, data) {
 
 }
 

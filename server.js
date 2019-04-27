@@ -34,7 +34,7 @@ app.get('/weather', getWeather);
 // CREATE MOVIE ROUTE
 app.get('/movies', getMovies);
 // CREATE YELP ROUTE
-app.get('/yelp', getYelp);
+app.get('/yelp', getYelpReviews);
 
 // MOVIE --------------------------------------------------------------------
 
@@ -112,13 +112,73 @@ Movie.fetch = (location) => {
 
 // YELP -------------------------------------------------------------------------
 
-function getYelp(request, response) {
+function getYelpReviews(request, response) {
 
+  const handler = {
+    query: request.query,
+
+    cacheHit: function (results) {
+      response.send(results.row);
+    },
+
+    cacheMiss: function () {
+      Yelp.fetch(request.query)
+        .then(data => {
+          console.log(data);
+          response.send(data);
+        });
+    }
+  };
+  Yelp.lookup(handler);
 }
 
-function Yelp(query, data) {
-
+function Yelp(data) {
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
 }
+
+Yelp.lookup = function (handler) {
+  console.log(handler);
+  const SQL = `SELECT * FROM yelps WHERE location_id=$1;`;
+  client.query(SQL, [handler.query.location_id])
+    .then(result => {
+      if (result.rowCount > 0) {
+        console.log('Got SQL data');
+        handler.cacheHit(result);
+      } else {
+        console.log('Get data from API');
+        handler.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+};
+
+Yelp.prototype.save = function (id) {
+  const SQL = `INSERT INTO yelps (name, image_url, price, rating, url, created_at, location_id) VALUES ($1,$2,$3,$4,$5,$6,$7);`;
+
+  const values = Object.values(this);
+  values.push(id);
+  client.query(SQL, values);
+};
+
+Yelp.fetch = (location) => {
+  const _URL = `https://api.yelp.com/v3/businesses/search?location=${location.search_query}&limit=20`;
+
+  return superagent.get(_URL)
+    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+    .then(data => {
+      console.log(data);
+      const yelpResults = data.body.businesses.map((business) => {
+        const restaurant = new Yelp(business);
+        return restaurant;
+      });
+
+      return yelpResults;
+    });
+};
 
 
 function getLocation(request, response) {

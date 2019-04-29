@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS weathers;
 DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTs movies;
+DROP TABLE IF EXISTS yelps;
 
 -- each specific location will be a row
 

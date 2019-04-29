@@ -263,7 +263,6 @@ function getWeather(request, response) {
     location: request.query.data,
 
     cacheHit: function (result) {
-      // add created_at
       response.send(result.rows);
     },
 
@@ -281,11 +280,18 @@ function getWeather(request, response) {
 function Weather(day) {
   this.forecast = day.summary;
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
+  this.created_at = Date.now();
 }
+
+// Delete old rows
+Weather.prototype.delete = function(id){
+  const SQL = `DELETE FROM weathers WHERE location_id = $1`;
+  client.qeury(SQL, [id]);
+};
 
 // Insrance Method: save location to the database
 Weather.prototype.save = function (id) {
-  const SQL = `INSERT INTO weathers (forecast, time, location_id) VALUES ($1, $2, $3);`;
+  const SQL = `INSERT INTO weathers (forecast, time, location_id, created_at) VALUES ($1, $2, $3, $4);`;
   const values = Object.values(this);
   values.push(id);
   client.query(SQL, values);
@@ -295,8 +301,8 @@ Weather.prototype.save = function (id) {
 // Question -- is anything in here other than the table name esoteric to weather? Is there an opportunity to DRY this out?
 
 Weather.lookup = function (handler) {
-  const SQL = `SELECT * FROM weathers WHERE location_id=$1;`;
-  client.query(SQL, [handler.location.id])
+  const SQL = `SELECT * FROM weathers WHERE location_id=$1 AND created_at BETWEEN $2 AND $3;`;
+  client.query(SQL, [handler.location.id, (Date.now()-1500), Date.now()])
     .then(result => {
       if (result.rowCount > 0) {
         console.log('Got data from SQL');
@@ -317,7 +323,8 @@ Weather.fetch = function (location) {
     .then(result => {
       const weatherSummaries = result.body.daily.data.map(day => {
         const summary = new Weather(day);
-        summary.save(location.id);
+        summary.delete(location.id)
+          .then(summary.save(location.id));
         return summary;
       });
       return weatherSummaries;
